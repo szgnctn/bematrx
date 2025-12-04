@@ -1,6 +1,11 @@
 "use server";
 
 import { registerSchema } from "@/lib/zod";
+// Adım 1: Firebase Auth modüllerini içe aktar
+import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
+import app from "@/lib/firebase"; 
+
+const auth = getAuth(app); // Firebase Auth servisini başlat
 
 export async function registerUser(formData: FormData): Promise<
   | { success: true }
@@ -23,15 +28,36 @@ export async function registerUser(formData: FormData): Promise<
       const errorMessages = result.error.errors
         .map((e) => `${e.path.join(".")}: ${e.message}`)
         .join(", ");
-      return { error: `Validation error: ${errorMessages}` };
+      return { error: `Doğrulama hatası: ${errorMessages}` };
     }
+    
+    // --- KRİTİK EKLENTİ: KULLANICIYI FIREBASE'E KAYDETME ---
 
-    await new Promise((res) => setTimeout(res, 1000));
+    // 1. Firebase kullanıcı oluşturma komutunu çalıştır
+    const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        email,
+        password
+    );
 
+    // Başarılı kayıttan sonra kullanıcı adını da eklemek isterseniz:
+    // await updateProfile(userCredential.user, { displayName: username });
+
+    // 2. Başarılı olduğunu döndür
     return { success: true };
-  } catch (error) {
-    console.error("Register error:", error);
-    return { error: "Something went wrong during registration." };
+
+  } catch (error: any) {
+    // Firebase hatası yakalama (örn: 'auth/email-already-in-use')
+    console.error("Firebase Kayıt Hatası:", error);
+
+    // Kullanıcıya anlaşılır bir hata mesajı döndürme
+    let errorMessage = "Kayıt sırasında bir hata oluştu.";
+    if (error.code === 'auth/email-already-in-use') {
+        errorMessage = "Bu e-posta adresi zaten kullanılıyor.";
+    } else if (error.code === 'auth/weak-password') {
+        errorMessage = "Şifre en az 6 karakter olmalıdır.";
+    }
+    
+    return { error: errorMessage };
   }
 }
-
