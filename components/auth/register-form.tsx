@@ -21,6 +21,7 @@ import { useForm } from "react-hook-form";
 import toast from "react-hot-toast";
 import { z } from "zod";
 import SocialLogin from "./social-login";
+import { registerUser } from "@/components/auth/actions/register";
 
 const RegisterForm = () => {
   const router = useRouter();
@@ -34,6 +35,9 @@ const RegisterForm = () => {
       username: "",
       email: "",
       password: "",
+      // ÇÖZÜM 1: TypeScript'e bu alanın başlangıçta false olabileceğini zorla kabul ettiriyoruz.
+      // Bu sayede form işaretlenmemiş olarak başlar ama validasyon yine de çalışır.
+      acceptTerms: false as unknown as true, 
     },
   });
 
@@ -41,14 +45,39 @@ const RegisterForm = () => {
     values: z.infer<typeof registerSchema>
   ) => {
     setLoading(true);
-    setIsSubmitting(true)
+    setIsSubmitting(true);
 
-    toast.success("User created successfully! Please wait...");
-    router.push("/dashboard");
+    const formData = new FormData();
+    formData.append("username", values.username);
+    formData.append("email", values.email);
+    formData.append("password", values.password);
+    if (values.acceptTerms) {
+        formData.append("acceptTerms", "on");
+    }
 
-    setTimeout(() => {
-      setLoading(false);
-    }, 1000);
+    try {
+        const response = await registerUser(formData);
+
+        // ÇÖZÜM 2: TypeScript'e "Eğer cevabın içinde 'error' özelliği varsa" kontrolü yaptırıyoruz.
+        if ("error" in response) {
+            toast.error(response.error);
+            setLoading(false);
+            setIsSubmitting(false);
+            return;
+        }
+
+        // ÇÖZÜM 3: Aynı şekilde "Eğer cevabın içinde 'success' varsa" kontrolü.
+        if ("success" in response) {
+            toast.success("Kayıt başarılı! Giriş sayfasına yönlendiriliyorsunuz...");
+            router.push("/auth/login");
+        }
+
+    } catch (error) {
+        toast.error("Beklenmeyen bir hata oluştu. Lütfen tekrar deneyin.");
+        console.error("Form Submit Hatası:", error);
+        setLoading(false);
+        setIsSubmitting(false);
+    }
   };
 
   return (
@@ -72,7 +101,7 @@ const RegisterForm = () => {
                       type="text"
                       placeholder="Username"
                       className="ps-13 pe-12 h-14 rounded-xl bg-neutral-100 dark:bg-slate-800 border border-neutral-300 dark:border-slate-700 focus:border-primary dark:focus:border-primary focus-visible:border-primary !shadow-none !ring-0"
-                      disabled={loading}
+                      disabled={loading || isSubmitting}
                     />
                   </div>
                 </FormControl>
@@ -95,7 +124,7 @@ const RegisterForm = () => {
                       type="email"
                       placeholder="Email"
                       className="ps-13 pe-12 h-14 rounded-xl bg-neutral-100 dark:bg-slate-800 border border-neutral-300 dark:border-slate-700 focus:border-primary dark:focus:border-primary focus-visible:border-primary !shadow-none !ring-0"
-                      disabled={loading}
+                      disabled={loading || isSubmitting}
                     />
                   </div>
                 </FormControl>
@@ -118,7 +147,7 @@ const RegisterForm = () => {
                       type={showPassword ? "text" : "password"}
                       placeholder="Password"
                       className="ps-13 pe-12 h-14 rounded-xl bg-neutral-100 dark:bg-slate-800 border border-neutral-300 dark:border-slate-700 focus:border-primary dark:focus:border-primary focus-visible:border-primary !shadow-none !ring-0"
-                      disabled={loading}
+                      disabled={loading || isSubmitting}
                     />
                     <Button
                       type="button"
@@ -148,6 +177,7 @@ const RegisterForm = () => {
                   <FormControl>
                     <Checkbox
                       checked={field.value}
+                      // ÇÖZÜM 4: Checkbox'ın onCheckedChange olayını React Hook Form ile uyumlu hale getirdik.
                       onCheckedChange={field.onChange}
                       id="createAccount"
                       className="border border-neutral-500 w-4.5 h-4.5 mt-1"
@@ -179,7 +209,7 @@ const RegisterForm = () => {
           <Button
             type="submit"
             className="w-full rounded-lg mt-1 h-[52px] text-sm mt-2"
-            disabled={loading}
+            disabled={loading || isSubmitting}
           >
             {isSubmitting ? (
               <>

@@ -1,11 +1,11 @@
 "use server";
 
 import { registerSchema } from "@/lib/zod";
-// Adım 1: Firebase Auth modüllerini içe aktar
-import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
+// DÜZELTME 1: updateProfile fonksiyonunu da içe aktardık
+import { getAuth, createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import app from "@/lib/firebase"; 
 
-const auth = getAuth(app); // Firebase Auth servisini başlat
+const auth = getAuth(app); 
 
 export async function registerUser(formData: FormData): Promise<
   | { success: true }
@@ -30,32 +30,40 @@ export async function registerUser(formData: FormData): Promise<
         .join(", ");
       return { error: `Doğrulama hatası: ${errorMessages}` };
     }
-    
-    // --- KRİTİK EKLENTİ: KULLANICIYI FIREBASE'E KAYDETME ---
 
-    // 1. Firebase kullanıcı oluşturma komutunu çalıştır
+    // --- FIREBASE KAYIT İŞLEMİ ---
+
+    // 1. Kullanıcıyı oluştur
     const userCredential = await createUserWithEmailAndPassword(
         auth,
         email,
         password
     );
 
-    // Başarılı kayıttan sonra kullanıcı adını da eklemek isterseniz:
-    // await updateProfile(userCredential.user, { displayName: username });
+    // DÜZELTME 2: Kullanıcı adını (DisplayName) kaydetme satırını aktif ettik
+    // Kullanıcı oluştuysa, hemen profilini güncelle ve ismini ekle
+    if (userCredential.user) {
+        await updateProfile(userCredential.user, { 
+            displayName: username 
+        });
+    }
 
-    // 2. Başarılı olduğunu döndür
     return { success: true };
 
   } catch (error: any) {
-    // Firebase hatası yakalama (örn: 'auth/email-already-in-use')
-    console.error("Firebase Kayıt Hatası:", error);
+    console.error("Firebase Kayıt Hatası DETAYLI:", error);
 
-    // Kullanıcıya anlaşılır bir hata mesajı döndürme
     let errorMessage = "Kayıt sırasında bir hata oluştu.";
+    
+    // Hataları daha net yakala
     if (error.code === 'auth/email-already-in-use') {
         errorMessage = "Bu e-posta adresi zaten kullanılıyor.";
     } else if (error.code === 'auth/weak-password') {
         errorMessage = "Şifre en az 6 karakter olmalıdır.";
+    } else if (error.code === 'auth/invalid-api-key') {
+        errorMessage = "Sistem hatası: API Anahtarı geçersiz.";
+    } else if (error.code === 'auth/network-request-failed') {
+        errorMessage = "Ağ hatası: Firebase'e ulaşılamıyor.";
     }
     
     return { error: errorMessage };

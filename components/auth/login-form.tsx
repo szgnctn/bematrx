@@ -32,9 +32,10 @@ const LoginForm = () => {
 
   const form = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
+    // DÜZELTME BURADA YAPILDI: Varsayılan değerler boşaltıldı
     defaultValues: {
-      email: 'wowdash@gmail.com',
-      password: 'Pa$$w0rd!',
+      email: '', 
+      password: '',
     },
   })
 
