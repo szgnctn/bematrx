@@ -1,0 +1,3 @@
+git add .
+git commit -m "Feat: Yeni özellik (Örneğin: Altın kazanma miktarını artırdım.)"
+git push origin master
